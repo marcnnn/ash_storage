@@ -1,4 +1,4 @@
-defmodule AshStorage.Test.Attachment do
+defmodule AshStorage.Test.PolymorphicAttachment do
   @moduledoc false
   use Ash.Resource,
     domain: AshStorage.Test.Domain,
@@ -11,7 +11,6 @@ defmodule AshStorage.Test.Attachment do
 
   attachment do
     blob_resource(AshStorage.Test.Blob)
-    belongs_to_resource(:post, AshStorage.Test.Post)
   end
 
   attributes do

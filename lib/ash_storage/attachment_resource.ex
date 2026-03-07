@@ -7,6 +7,27 @@ defmodule AshStorage.AttachmentResource do
 
   ## Usage
 
+  With proper foreign keys (recommended):
+
+      defmodule MyApp.Storage.PostAttachment do
+        use Ash.Resource,
+          domain: MyApp.Storage,
+          data_layer: AshPostgres.DataLayer,
+          extensions: [AshStorage.AttachmentResource]
+
+        postgres do
+          table "post_attachments"
+          repo MyApp.Repo
+        end
+
+        attachment do
+          blob_resource MyApp.Storage.Blob
+          belongs_to_resource :post, MyApp.Post
+        end
+      end
+
+  Without foreign keys (polymorphic, shared table):
+
       defmodule MyApp.Storage.Attachment do
         use Ash.Resource,
           domain: MyApp.Storage,
@@ -23,19 +44,57 @@ defmodule AshStorage.AttachmentResource do
         end
       end
 
-  The following attributes are added automatically:
+  ## Attributes
+
+  Always added:
   - `name` (string, required) - attachment name (e.g. "avatar")
+
+  When no `belongs_to_resource` is declared (polymorphic mode):
   - `record_type` (string, required) - the type of the owning record
   - `record_id` (string, required) - the ID of the owning record
 
-  The following relationships are added:
+  ## Relationships
+
+  Always added:
   - `blob` (belongs_to) - reference to the blob resource
 
-  The following actions are added:
+  Per `belongs_to_resource` declaration:
+  - A `belongs_to` relationship to the specified resource
+
+  ## Actions
+
   - `:create` (create)
   - `:read` (read)
   - `:destroy` (destroy)
   """
+
+  defmodule BelongsToResource do
+    @moduledoc "Represents a belongs_to_resource declaration on an attachment resource."
+    defstruct [:name, :resource, :__spark_metadata__]
+  end
+
+  @belongs_to_resource %Spark.Dsl.Entity{
+    name: :belongs_to_resource,
+    args: [:name, :resource],
+    describe:
+      "Declares a belongs_to relationship to a parent resource, creating a proper foreign key.",
+    examples: [
+      "belongs_to_resource :post, MyApp.Post"
+    ],
+    schema: [
+      name: [
+        type: :atom,
+        required: true,
+        doc: "The name of the relationship."
+      ],
+      resource: [
+        type: :module,
+        required: true,
+        doc: "The parent resource module."
+      ]
+    ],
+    target: BelongsToResource
+  }
 
   @attachment %Spark.Dsl.Section{
     name: :attachment,
@@ -46,7 +105,8 @@ defmodule AshStorage.AttachmentResource do
         required: true,
         doc: "The blob resource module to reference."
       ]
-    ]
+    ],
+    entities: [@belongs_to_resource]
   }
 
   use Spark.Dsl.Extension,

@@ -14,47 +14,79 @@ defmodule AshStorage.AttachmentResource.Transformers.SetupAttachment do
     blob_resource =
       Spark.Dsl.Extension.get_opt(dsl_state, [:attachment], :blob_resource)
 
+    belongs_to_resources =
+      Spark.Dsl.Extension.get_entities(dsl_state, [:attachment])
+
     dsl_state
-    |> add_attributes()
-    |> add_relationships(blob_resource)
-    |> add_actions()
+    |> add_attributes(belongs_to_resources)
+    |> add_relationships(blob_resource, belongs_to_resources)
+    |> add_actions(belongs_to_resources)
   end
 
-  defp add_attributes(dsl_state) do
-    attrs = [
-      {:name, :string, allow_nil?: false, public?: true, writable?: true},
-      {:record_type, :string, allow_nil?: false, public?: true, writable?: true},
-      {:record_id, :string, allow_nil?: false, public?: true, writable?: true}
+  defp add_attributes(dsl_state, belongs_to_resources) do
+    base_attrs = [
+      {:name, :string, allow_nil?: false, public?: true, writable?: true}
     ]
 
-    Enum.reduce(attrs, {:ok, dsl_state}, fn {name, type, opts}, {:ok, dsl_state} ->
+    polymorphic_attrs =
+      if belongs_to_resources == [] do
+        [
+          {:record_type, :string, allow_nil?: false, public?: true, writable?: true},
+          {:record_id, :string, allow_nil?: false, public?: true, writable?: true}
+        ]
+      else
+        []
+      end
+
+    Enum.reduce(base_attrs ++ polymorphic_attrs, {:ok, dsl_state}, fn {name, type, opts},
+                                                                      {:ok, dsl_state} ->
       Ash.Resource.Builder.add_new_attribute(dsl_state, name, type, opts)
     end)
   end
 
-  defp add_relationships({:ok, dsl_state}, blob_resource) do
-    Ash.Resource.Builder.add_relationship(
-      dsl_state,
-      :belongs_to,
-      :blob,
-      blob_resource,
-      allow_nil?: false,
-      public?: true,
-      attribute_writable?: true
-    )
+  defp add_relationships({:ok, dsl_state}, blob_resource, belongs_to_resources) do
+    with {:ok, dsl_state} <-
+           Ash.Resource.Builder.add_relationship(
+             dsl_state,
+             :belongs_to,
+             :blob,
+             blob_resource,
+             allow_nil?: false,
+             public?: true,
+             attribute_writable?: true
+           ) do
+      Enum.reduce(belongs_to_resources, {:ok, dsl_state}, fn %{name: name, resource: resource},
+                                                              {:ok, dsl_state} ->
+        Ash.Resource.Builder.add_relationship(
+          dsl_state,
+          :belongs_to,
+          name,
+          resource,
+          allow_nil?: length(belongs_to_resources) > 1,
+          public?: true,
+          attribute_writable?: true
+        )
+      end)
+    end
   end
 
-  defp add_relationships({:error, error}, _), do: {:error, error}
+  defp add_relationships({:error, error}, _, _), do: {:error, error}
 
-  defp add_actions({:ok, dsl_state}) do
+  defp add_actions({:ok, dsl_state}, belongs_to_resources) do
+    accept =
+      if belongs_to_resources == [] do
+        [:name, :record_type, :record_id, :blob_id]
+      else
+        belongs_to_attrs = Enum.map(belongs_to_resources, &:"#{&1.name}_id")
+        [:name, :blob_id] ++ belongs_to_attrs
+      end
+
     with {:ok, dsl_state} <-
-           Ash.Resource.Builder.add_action(dsl_state, :create, :create,
-             accept: [:name, :record_type, :record_id, :blob_id]
-           ),
+           Ash.Resource.Builder.add_action(dsl_state, :create, :create, accept: accept),
          {:ok, dsl_state} <- Ash.Resource.Builder.add_action(dsl_state, :read, :read) do
       Ash.Resource.Builder.add_action(dsl_state, :destroy, :destroy)
     end
   end
 
-  defp add_actions({:error, error}), do: {:error, error}
+  defp add_actions({:error, error}, _), do: {:error, error}
 end
