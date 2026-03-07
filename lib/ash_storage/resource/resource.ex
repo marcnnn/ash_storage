@@ -79,5 +79,6 @@ defmodule AshStorage.Resource do
   }
 
   use Spark.Dsl.Extension,
-    sections: [@storage]
+    sections: [@storage],
+    transformers: [AshStorage.Resource.Transformers.SetupStorage]
 end

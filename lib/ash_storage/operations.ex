@@ -67,6 +67,20 @@ defmodule AshStorage.Operations do
   end
 
   @doc """
+  Detach all attachments for a given name from a record.
+
+  Unlike `detach/3`, this does not require a `:blob_id` for `has_many_attached`.
+  """
+  def detach_all(record, attachment_name) do
+    resource = record.__struct__
+
+    with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
+         {:ok, attachments} <- find_attachments(record, attachment_def) do
+      destroy_attachment_records(attachments, resource)
+    end
+  end
+
+  @doc """
   Purge an attachment: destroy the attachment record, blob record, and file from storage.
 
   For `has_one_attached`, purges the single attachment.
@@ -86,6 +100,44 @@ defmodule AshStorage.Operations do
          {:ok, to_purge} <- select_for_purge(attachments, attachment_def, opts),
          {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def) do
       purge_attachments(to_purge, resource, service_mod, service_opts)
+    end
+  end
+
+  @doc """
+  Destroy attachment and blob records for a given attachment name, without deleting
+  files from storage. Returns the list of `{service_mod, service_opts, key}` tuples
+  for deferred file deletion.
+
+  This is used by the dependent destroy change to separate DB work (inside transaction)
+  from file deletion (outside transaction or async).
+  """
+  def destroy_attachment_and_blob_records(record, attachment_name) do
+    resource = record.__struct__
+
+    with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
+         {:ok, attachments} <- find_attachments(record, attachment_def),
+         {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def) do
+      Enum.reduce_while(attachments, {:ok, []}, fn att, {:ok, keys_acc} ->
+        blob = att.blob
+
+        with {:ok, _} <- Ash.destroy(att, action: :destroy, return_destroyed?: true),
+             {:ok, _} <- Ash.destroy(blob, action: :destroy, return_destroyed?: true) do
+          {:cont, {:ok, [{service_mod, service_opts, blob.key} | keys_acc]}}
+        else
+          {:error, error} -> {:halt, {:error, error}}
+        end
+      end)
+    end
+  end
+
+  @doc """
+  Delete a file from a storage service, handling both arity-1 and arity-2 delete callbacks.
+  """
+  def delete_from_service(service_mod, service_opts, key) do
+    if function_exported?(service_mod, :delete, 2) do
+      service_mod.delete(key, service_opts)
+    else
+      service_mod.delete(key)
     end
   end
 
@@ -275,13 +327,5 @@ defmodule AshStorage.Operations do
         {:error, error} -> {:halt, {:error, error}}
       end
     end)
-  end
-
-  defp delete_from_service(service_mod, service_opts, key) do
-    if function_exported?(service_mod, :delete, 2) do
-      service_mod.delete(key, service_opts)
-    else
-      service_mod.delete(key)
-    end
   end
 end
