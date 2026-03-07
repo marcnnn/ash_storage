@@ -73,17 +73,11 @@ defmodule AshStorage.Operations do
 
   ## Returns
 
-      {:ok, %{
-        blob: blob,
-        upload_url: "https://...",
-        upload_fields: [{"key", "..."}, ...] | nil
-      }}
+  Returns `{:ok, upload_info}` where `upload_info` is the map from the
+  service's `direct_upload/2` callback with an added `:blob` key.
 
-  For presigned PUT uploads (most services), `upload_fields` will be `nil` and
-  the client should PUT the file body directly to `upload_url`.
-
-  For presigned POST/form uploads (S3), `upload_fields` contains form fields
-  that must be included in the multipart POST along with the file.
+  For presigned PUT: `%{blob: blob, url: "https://...", method: :put}`
+  For presigned POST: `%{blob: blob, url: "https://...", method: :post, fields: [...]}`
   """
   def prepare_direct_upload(resource, attachment_name, opts \\ []) do
     with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
@@ -114,12 +108,7 @@ defmodule AshStorage.Operations do
                action: :create
              ),
            {:ok, upload_info} <- service_mod.direct_upload(key, ctx) do
-        {:ok,
-         %{
-           blob: blob,
-           upload_url: upload_info[:url],
-           upload_fields: upload_info[:fields]
-         }}
+        {:ok, Map.put(upload_info, :blob, blob)}
       end
     end
   end

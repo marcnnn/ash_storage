@@ -122,6 +122,7 @@ defmodule AshStorage.Service.Test do
     {:ok,
      %{
        url: "#{base_url}/direct/#{key}",
+       method: :put,
        headers: %{
          "content-type" =>
            Keyword.get(ctx.service_opts, :content_type, "application/octet-stream")

@@ -28,7 +28,8 @@ defmodule AshStorage.DirectUploadTest do
       assert result.blob.byte_size == 12_345
       assert result.blob.service_name == AshStorage.Service.Test
 
-      assert result.upload_url =~ "http://test.local/storage/direct/"
+      assert result.url =~ "http://test.local/storage/direct/"
+      assert result.method == :put
     end
 
     test "generates a unique key for each upload" do

@@ -103,12 +103,22 @@ defmodule AshStorage.Service.S3 do
     end
   end
 
+  @doc """
+  Generate a presigned URL or form for direct client-side upload.
+
+  By default, generates a presigned PUT URL (`:method` option defaults to `:put`).
+  Set `method: :post` in service_opts to use presigned POST forms instead.
+
+  For `:put`, returns `%{url: presigned_url, method: :put}`.
+  For `:post`, returns `%{url: form_url, method: :post, fields: [...]}`.
+  """
   @impl true
   def direct_upload(key, %AshStorage.Service.Context{} = ctx) do
     opts = ctx.service_opts
     full_key = prefixed_key(key, ctx)
+    method = Keyword.get(opts, :direct_upload_method, :put)
 
-    presign_opts =
+    presign_base =
       [
         bucket: Keyword.fetch!(opts, :bucket),
         key: full_key,
@@ -120,12 +130,21 @@ defmodule AshStorage.Service.S3 do
         resolve_credential(opts, :secret_access_key, "AWS_SECRET_ACCESS_KEY")
       )
       |> maybe_put(:endpoint_url, Keyword.get(opts, :endpoint_url))
-      |> maybe_put(:content_type, Keyword.get(opts, :content_type))
-      |> maybe_put(:max_size, Keyword.get(opts, :max_size))
 
-    form = ReqS3.presign_form(presign_opts)
+    case method do
+      :put ->
+        url = ReqS3.presign_url(Keyword.put(presign_base, :method, :put))
+        {:ok, %{url: url, method: :put}}
 
-    {:ok, %{url: form.url, fields: form.fields}}
+      :post ->
+        presign_opts =
+          presign_base
+          |> maybe_put(:content_type, Keyword.get(opts, :content_type))
+          |> maybe_put(:max_size, Keyword.get(opts, :max_size))
+
+        form = ReqS3.presign_form(presign_opts)
+        {:ok, %{url: form.url, method: :post, fields: form.fields}}
+    end
   end
 
   # -- Private helpers --

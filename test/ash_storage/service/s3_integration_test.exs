@@ -190,6 +190,53 @@ defmodule AshStorage.Service.S3IntegrationTest do
     after
       Application.delete_env(:ash_storage, AshStorage.Test.ConfigurablePost)
     end
+
+    test "direct upload flow via S3" do
+      Application.put_env(:ash_storage, AshStorage.Test.ConfigurablePost,
+        storage: [
+          service: {AshStorage.Service.S3, @service_opts}
+        ]
+      )
+
+      # Step 1: Prepare direct upload — creates blob, gets presigned URL
+      {:ok, %{blob: blob, url: upload_url, method: :put}} =
+        AshStorage.Operations.prepare_direct_upload(
+          AshStorage.Test.ConfigurablePost,
+          :avatar,
+          filename: "direct.txt",
+          content_type: "text/plain",
+          byte_size: 14
+        )
+
+      assert blob.filename == "direct.txt"
+      assert blob.service_name == AshStorage.Service.S3
+      assert upload_url != nil
+
+      # Step 2: Client uploads directly to S3 using presigned PUT URL
+      assert {:ok, %{status: status}} = Req.put(upload_url, body: "direct content")
+      assert status in [200, 204]
+
+      # Step 3: Confirm the upload and attach to record
+      post =
+        AshStorage.Test.ConfigurablePost
+        |> Ash.Changeset.for_create(:create, %{title: "direct upload post"})
+        |> Ash.create!()
+
+      {:ok, %{blob: confirmed_blob, attachment: attachment}} =
+        AshStorage.Operations.confirm_direct_upload(post, :avatar, blob.id)
+
+      assert confirmed_blob.id == blob.id
+      assert attachment.blob_id == blob.id
+
+      # Verify file is actually in S3
+      assert {:ok, "direct content"} = S3.download(blob.key, ctx())
+
+      # Verify loadable via Ash
+      post = Ash.load!(post, avatar: :blob)
+      assert post.avatar.blob.filename == "direct.txt"
+    after
+      Application.delete_env(:ash_storage, AshStorage.Test.ConfigurablePost)
+    end
   end
 
   # -- Helpers --

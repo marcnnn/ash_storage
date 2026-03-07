@@ -85,6 +85,7 @@ defmodule AshStorage.Service.Disk do
     {:ok,
      %{
        url: "#{base_url}/disk/#{key}",
+       method: :put,
        headers: %{
          "content-type" =>
            Keyword.get(ctx.service_opts, :content_type, "application/octet-stream")
