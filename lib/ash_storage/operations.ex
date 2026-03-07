@@ -16,6 +16,10 @@ defmodule AshStorage.Operations do
   Uploads the file to the storage service, creates a blob record, and creates
   an attachment record linking the blob to the record.
 
+  The `io` argument can be binary data, iodata, a `File.Stream`, or an
+  `Ash.Type.File` (which also accepts `Plug.Upload` and other sources via
+  the `Ash.Type.File.Source` protocol).
+
   For `has_one_attached`, any existing attachment with the same name is replaced
   (the old blob and file are purged).
 
@@ -32,6 +36,12 @@ defmodule AshStorage.Operations do
       AshStorage.Operations.attach(post, :cover_image, file_data,
         filename: "photo.jpg",
         content_type: "image/jpeg"
+      )
+
+      # With an Ash.Type.File argument
+      AshStorage.Operations.attach(post, :cover_image, file_arg,
+        filename: file_arg.source.filename,
+        content_type: file_arg.source.content_type
       )
   """
   def attach(record, attachment_name, io, opts \\ []) do
@@ -177,6 +187,13 @@ defmodule AshStorage.Operations do
         action: :create
       )
     end
+  end
+
+  defp read_io(%Ash.Type.File{} = file) do
+    {:ok, device} = Ash.Type.File.open(file, [:read, :binary])
+    data = IO.binread(device, :eof)
+    File.close(device)
+    data
   end
 
   defp read_io(%File.Stream{} = stream), do: Enum.into(stream, <<>>, &IO.iodata_to_binary/1)

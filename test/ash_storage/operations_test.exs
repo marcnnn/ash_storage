@@ -38,6 +38,25 @@ defmodule AshStorage.OperationsTest do
       assert {:ok, "hello world"} = AshStorage.Service.Test.download(blob.key, [])
     end
 
+    test "accepts Ash.Type.File" do
+      post = create_post!()
+      path = Path.join(System.tmp_dir!(), "ash_storage_test_file.txt")
+      File.write!(path, "file type data")
+
+      file = Ash.Type.File.from_path(path)
+
+      {:ok, %{blob: blob}} =
+        Operations.attach(post, :cover_image, file,
+          filename: "from_file_type.txt",
+          content_type: "text/plain"
+        )
+
+      assert blob.filename == "from_file_type.txt"
+      assert {:ok, "file type data"} = AshStorage.Service.Test.download(blob.key, [])
+    after
+      File.rm(Path.join(System.tmp_dir!(), "ash_storage_test_file.txt"))
+    end
+
     test "replaces existing has_one_attached" do
       post = create_post!()
 

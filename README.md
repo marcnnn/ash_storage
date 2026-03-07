@@ -71,7 +71,17 @@ defmodule MyApp.StorageAttachment do
 end
 ```
 
-For polymorphic attachments (shared across multiple resource types), omit `belongs_to_resource`:
+For attachments shared across multiple resource types, declare multiple `belongs_to_resource` entries (foreign keys will be nullable):
+
+```elixir
+attachment do
+  blob_resource MyApp.StorageBlob
+  belongs_to_resource :post, MyApp.Post
+  belongs_to_resource :comment, MyApp.Comment
+end
+```
+
+For fully polymorphic attachments (using `record_type`/`record_id` string columns instead of foreign keys), omit `belongs_to_resource` entirely:
 
 ```elixir
 attachment do
