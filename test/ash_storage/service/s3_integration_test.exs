@@ -276,7 +276,9 @@ defmodule AshStorage.Service.S3IntegrationTest do
         ]
       )
 
-      post = Ash.load!(post, :avatar_url, force?: true)
+      # Re-read the post to clear cached calculations
+      post = Ash.get!(AshStorage.Test.ConfigurablePost, post.id)
+      post = Ash.load!(post, :avatar_url)
       assert post.avatar_url =~ "X-Amz-Signature"
 
       # Reset to plain URLs for purge
