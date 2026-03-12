@@ -53,6 +53,8 @@ end
 
 IO.puts("MinIO started at #{minio_url} with bucket '#{minio_bucket}'")
 
+# -- Phoenix config --
+
 Application.put_env(:ash_storage, DemoWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   http: [port: 4002],
@@ -130,6 +132,10 @@ defmodule DemoWeb.HomeLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Demo.PubSub, "blob_analysis")
+    end
+
     socket =
       socket
       |> assign(
@@ -155,6 +161,7 @@ defmodule DemoWeb.HomeLive do
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <h2 class="text-lg font-bold text-blue-900">S3 Service (MinIO)</h2>
           <p class="text-xs text-blue-600">Files stored in MinIO S3 bucket &middot; Presigned URLs</p>
+          <p class="text-xs text-blue-500 mt-1">Analyzers: FileInfo + ImageDimensions (both eager)</p>
         </div>
 
         <.create_form
@@ -178,6 +185,7 @@ defmodule DemoWeb.HomeLive do
         <div class="bg-green-50 border border-green-200 rounded-lg p-3">
           <h2 class="text-lg font-bold text-green-900">Disk Service</h2>
           <p class="text-xs text-green-600">Files stored on local filesystem &middot; Signed URLs</p>
+          <p class="text-xs text-green-500 mt-1">Analyzers: FileInfo (eager) + ImageDimensions (oban)</p>
         </div>
 
         <.create_form
@@ -197,6 +205,16 @@ defmodule DemoWeb.HomeLive do
       </div>
     </div>
     """
+  end
+
+  # -- PubSub --
+
+  @impl true
+  def handle_info({:analysis_complete, _blob}, socket) do
+    {:noreply,
+     socket
+     |> assign(posts: load_records(Demo.Post), pages: load_records(Demo.Page))
+     |> put_flash(:info, "Background analysis completed!")}
   end
 
   # -- Components --
@@ -289,28 +307,32 @@ defmodule DemoWeb.HomeLive do
             <div :if={String.starts_with?(record.cover_image.blob.content_type || "", "image/")} class="mt-1">
               <img src={record.cover_image_url} class="h-24 rounded shadow" />
             </div>
+            <.blob_analysis blob={record.cover_image.blob} />
           </div>
           <p :if={is_nil(record.cover_image)} class="text-[10px] text-gray-400 mt-1">None</p>
         </div>
 
         <div class="mt-2">
           <span class="text-xs font-medium text-gray-500">Documents</span>
-          <ul :if={record.documents != []} class="mt-1 space-y-0.5">
-            <li :for={doc <- record.documents} class="flex items-center gap-2">
-              <a href={url_for(record, doc)} target="_blank" class="text-blue-600 hover:underline text-xs">
-                {doc.blob.filename}
-              </a>
-              <span class="text-[10px] text-gray-400">
-                {format_bytes(doc.blob.byte_size)}
-              </span>
-              <button
-                phx-click={"purge_#{@kind}_doc"}
-                phx-value-record-id={record.id}
-                phx-value-blob-id={doc.blob_id}
-                class="text-red-400 hover:text-red-600 text-[10px]"
-              >
-                Remove
-              </button>
+          <ul :if={record.documents != []} class="mt-1 space-y-1">
+            <li :for={doc <- record.documents}>
+              <div class="flex items-center gap-2">
+                <a href={url_for(record, doc)} target="_blank" class="text-blue-600 hover:underline text-xs">
+                  {doc.blob.filename}
+                </a>
+                <span class="text-[10px] text-gray-400">
+                  {format_bytes(doc.blob.byte_size)}
+                </span>
+                <button
+                  phx-click={"purge_#{@kind}_doc"}
+                  phx-value-record-id={record.id}
+                  phx-value-blob-id={doc.blob_id}
+                  class="text-red-400 hover:text-red-600 text-[10px]"
+                >
+                  Remove
+                </button>
+              </div>
+              <.blob_analysis blob={doc.blob} />
             </li>
           </ul>
           <p :if={record.documents == []} class="text-[10px] text-gray-400 mt-1">None</p>
@@ -319,6 +341,38 @@ defmodule DemoWeb.HomeLive do
     </div>
     """
   end
+
+  attr :blob, :any, required: true
+
+  defp blob_analysis(assigns) do
+    ~H"""
+    <div :if={@blob.metadata != %{} or @blob.analyzers != %{}} class="mt-1 ml-2 p-2 bg-gray-50 rounded text-[10px]">
+      <%!-- Metadata --%>
+      <div :if={@blob.metadata != %{}} class="mb-1">
+        <span class="font-semibold text-gray-600">Metadata:</span>
+        <span :for={{k, v} <- @blob.metadata} class="ml-1 inline-block bg-white border rounded px-1">
+          {k}={inspect(v)}
+        </span>
+      </div>
+      <%!-- Analyzer statuses --%>
+      <div :if={@blob.analyzers != %{}}>
+        <span class="font-semibold text-gray-600">Analyzers:</span>
+        <div :for={{mod, info} <- @blob.analyzers} class="ml-1 mt-0.5 flex items-center gap-1">
+          <span class={"inline-block w-2 h-2 rounded-full #{status_color(info["status"])}"} />
+          <span class="font-mono">{short_module(mod)}</span>
+          <span class="text-gray-400">{info["status"]}</span>
+          <span :if={info["status"] == "pending"} class="text-yellow-600 animate-pulse">analyzing...</span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp status_color("complete"), do: "bg-green-500"
+  defp status_color("pending"), do: "bg-yellow-400"
+  defp status_color("error"), do: "bg-red-500"
+  defp status_color("skipped"), do: "bg-gray-400"
+  defp status_color(_), do: "bg-gray-300"
 
   defp errors(assigns) do
     ~H"""
@@ -435,6 +489,13 @@ defmodule DemoWeb.HomeLive do
      |> put_flash(:info, "Document removed")}
   end
 
+  defp short_module(mod_string) do
+    mod_string
+    |> String.replace("Elixir.", "")
+    |> String.split(".")
+    |> List.last()
+  end
+
   defp load_records(resource) do
     resource
     |> Ash.read!()
@@ -527,7 +588,12 @@ File.mkdir_p!("tmp/dev_storage")
 Application.put_env(:phoenix, :serve_endpoints, true)
 
 Task.start(fn ->
+  oban_config =
+    AshOban.config([Demo.Domain], Application.fetch_env!(:ash_storage, :oban))
+
   children = [
+    Demo.Repo,
+    {Oban, oban_config},
     {Phoenix.PubSub, name: Demo.PubSub},
     DemoWeb.Endpoint
   ]

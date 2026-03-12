@@ -98,7 +98,8 @@ defmodule AshStorage do
 
   use Spark.Dsl.Extension,
     sections: [@storage],
-    transformers: [AshStorage.Transformers.SetupStorage]
+    transformers: [AshStorage.Transformers.SetupStorage],
+    verifiers: [AshStorage.Verifiers.ValidateObanAnalyzers]
 
   @doc """
   Generate a unique key for storing a file.

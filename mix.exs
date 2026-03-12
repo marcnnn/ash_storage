@@ -169,7 +169,12 @@ defmodule AshStorage.MixProject do
     [
       sobelow: "sobelow --skip",
       credo: "credo --strict",
-      dev: "run --no-halt dev.exs",
+      dev: "run --no-halt dev.exs --config config",
+      "dev.setup": ["deps.get", "ash_postgres.create", "dev.migrate"],
+      "dev.migrate": "ash_postgres.migrate --migrations-path dev/repo/migrations",
+      "dev.generate_migrations":
+        "ash_postgres.generate_migrations --domains Demo.Domain --snapshot-path dev/resource_snapshots --migration-path dev/repo/migrations",
+      "dev.reset": ["ash_postgres.drop", "ash_postgres.create", "dev.migrate"],
       docs: [
         "docs",
         "spark.replace_doc_links"

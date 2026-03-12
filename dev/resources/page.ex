@@ -2,11 +2,12 @@ defmodule Demo.Page do
   @moduledoc false
   use Ash.Resource,
     domain: Demo.Domain,
-    data_layer: Ash.DataLayer.Ets,
+    data_layer: AshPostgres.DataLayer,
     extensions: [AshStorage]
 
-  ets do
-    private? false
+  postgres do
+    table "pages"
+    repo(Demo.Repo)
   end
 
   storage do
@@ -20,8 +21,14 @@ defmodule Demo.Page do
     blob_resource(Demo.Blob)
     attachment_resource(Demo.Attachment)
 
-    has_one_attached :cover_image
-    has_many_attached :documents
+    has_one_attached :cover_image,
+      analyzers: [
+        Demo.Analyzers.FileInfo,
+        {Demo.Analyzers.ImageDimensions, analyze: :oban}
+      ]
+
+    has_many_attached :documents,
+      analyzers: [Demo.Analyzers.FileInfo]
   end
 
   attributes do

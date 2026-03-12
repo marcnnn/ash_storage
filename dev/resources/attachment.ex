@@ -2,11 +2,17 @@ defmodule Demo.Attachment do
   @moduledoc false
   use Ash.Resource,
     domain: Demo.Domain,
-    data_layer: Ash.DataLayer.Ets,
+    data_layer: AshPostgres.DataLayer,
     extensions: [AshStorage.AttachmentResource]
 
-  ets do
-    private? false
+  postgres do
+    table "storage_attachments"
+    repo(Demo.Repo)
+
+    references do
+      reference :post, on_delete: :nilify
+      reference :page, on_delete: :nilify
+    end
   end
 
   attachment do

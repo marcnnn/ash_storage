@@ -6,6 +6,6 @@ config :ash, :validate_domain_config_inclusion?, false
 
 config :logger, level: :warning
 
-if config_env() == :test do
-  import_config "test.exs"
+if config_env() in [:test, :dev] do
+  import_config "#{config_env()}.exs"
 end

@@ -48,6 +48,7 @@ defmodule AshStorage.Operations do
          {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def),
          ctx = build_context(service_opts, resource, attachment_def, opts),
          {:ok, blob} <- upload_and_create_blob(resource, service_mod, ctx, io, opts),
+         {:ok, blob} <- run_analyzers(blob, attachment_def, io, opts),
          {:ok, _} <- maybe_replace_existing(record, attachment_def, service_mod, ctx),
          {:ok, attachment} <- create_attachment(record, attachment_def, blob) do
       {:ok, %{blob: blob, attachment: attachment}}
@@ -312,6 +313,81 @@ defmodule AshStorage.Operations do
     service_mod.delete(key, ctx)
   end
 
+  @doc """
+  Run a specific analyzer on a blob, downloading the file from storage if needed.
+
+  This is intended for async analysis via AshOban jobs. It downloads the blob's file,
+  runs the analyzer, and updates the blob's metadata and analyzer status.
+
+  The analyzer's opts are read from the blob's `analyzers` map.
+
+  ## Options
+
+  - `:actor` - the actor performing the operation
+  - `:tenant` - the tenant
+  """
+  def run_analyzer(blob, analyzer_module, opts \\ []) do
+    analyzer_key = to_string(analyzer_module)
+    blob_analyzers = blob.analyzers || %{}
+
+    case Map.fetch(blob_analyzers, analyzer_key) do
+      {:ok, %{"opts" => analyzer_opts}} ->
+        service_mod = blob.service_name
+        content_type = blob.content_type || "application/octet-stream"
+
+        if analyzer_module.accept?(content_type) do
+          with {:ok, data} <- service_mod.download(blob.key, build_blob_context(blob, opts)) do
+            path =
+              Path.join(
+                System.tmp_dir!(),
+                "ash_storage_analyze_#{AshStorage.generate_key()}"
+              )
+
+            File.write!(path, data)
+
+            try do
+              keyword_opts =
+                Enum.map(analyzer_opts, fn {k, v} -> {String.to_existing_atom(k), v} end)
+
+              {status, metadata_to_merge} =
+                case analyzer_module.analyze(path, keyword_opts) do
+                  {:ok, result} -> {"complete", result}
+                  {:error, _reason} -> {"error", %{}}
+                end
+
+              Ash.update(blob,
+                %{
+                  analyzer_key: analyzer_key,
+                  status: status,
+                  metadata_to_merge: metadata_to_merge
+                },
+                action: :complete_analysis
+              )
+            after
+              File.rm(path)
+            end
+          end
+        else
+          Ash.update(blob,
+            %{analyzer_key: analyzer_key, status: "skipped", metadata_to_merge: %{}},
+            action: :complete_analysis
+          )
+        end
+
+      :error ->
+        {:error, :analyzer_not_configured}
+    end
+  end
+
+  defp build_blob_context(blob, opts) do
+    blob = Ash.load!(blob, :parsed_service_opts)
+
+    Context.new(blob.parsed_service_opts || [],
+      actor: Keyword.get(opts, :actor),
+      tenant: Keyword.get(opts, :tenant)
+    )
+  end
+
   # -- Private helpers --
 
   defp persistable_service_opts(service_mod, service_opts) do
@@ -392,6 +468,118 @@ defmodule AshStorage.Operations do
   defp read_io(%File.Stream{} = stream), do: Enum.into(stream, <<>>, &IO.iodata_to_binary/1)
   defp read_io(data) when is_binary(data), do: data
   defp read_io(data) when is_list(data), do: IO.iodata_to_binary(data)
+
+  # -- Analyzer helpers --
+
+  defp run_analyzers(blob, attachment_def, io, _opts) do
+    normalized = AshStorage.AttachmentDefinition.normalize_analyzers(attachment_def.analyzers)
+
+    if normalized == [] do
+      {:ok, blob}
+    else
+      content_type = blob.content_type || "application/octet-stream"
+
+      # Build initial analyzers map with all analyzers set to pending
+      initial_analyzers =
+        Map.new(normalized, fn {module, _analyze, opts} ->
+          string_opts = Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+          {to_string(module), %{"status" => "pending", "opts" => string_opts}}
+        end)
+
+      has_oban_analyzers? = Enum.any?(normalized, fn {_mod, analyze, _opts} -> analyze == :oban end)
+
+      # Set initial analyzers map on the blob
+      with {:ok, blob} <-
+             Ash.update(blob, %{analyzers: initial_analyzers}, action: :update_metadata) do
+        # Find eager analyzers that accept this content type
+        eager =
+          Enum.filter(normalized, fn {module, analyze, _opts} ->
+            analyze != :oban && module.accept?(content_type)
+          end)
+
+        with {:ok, blob} <- run_eager_analyzers(blob, eager, io) do
+          if has_oban_analyzers? do
+            AshOban.run_trigger(blob, :run_pending_analyzers)
+          end
+
+          {:ok, blob}
+        end
+      end
+    end
+  end
+
+  defp run_eager_analyzers(blob, [], _io), do: {:ok, blob}
+
+  defp run_eager_analyzers(blob, eager_analyzers, io) do
+    {:ok, path} = resolve_analyzer_path(io)
+
+    try do
+      Enum.reduce_while(eager_analyzers, {:ok, blob}, fn {module, _analyze, opts},
+                                                          {:ok, blob} ->
+        analyzer_key = to_string(module)
+
+        {status, metadata_to_merge} =
+          case module.analyze(path, opts) do
+            {:ok, result} -> {"complete", result}
+            {:error, _reason} -> {"error", %{}}
+          end
+
+        case Ash.update(blob,
+               %{
+                 analyzer_key: analyzer_key,
+                 status: status,
+                 metadata_to_merge: metadata_to_merge
+               },
+               action: :complete_analysis
+             ) do
+          {:ok, blob} -> {:cont, {:ok, blob}}
+          {:error, error} -> {:halt, {:error, error}}
+        end
+      end)
+    after
+      maybe_cleanup_tempfile(io, path)
+    end
+  end
+
+  defp resolve_analyzer_path(%Ash.Type.File{} = file) do
+    case Ash.Type.File.path(file) do
+      {:ok, path} -> {:ok, path}
+      _ -> write_tempfile(file)
+    end
+  end
+
+  defp resolve_analyzer_path(%File.Stream{path: path}), do: {:ok, path}
+
+  defp resolve_analyzer_path(data) when is_binary(data) or is_list(data) do
+    write_tempfile(data)
+  end
+
+  defp write_tempfile(%Ash.Type.File{} = file) do
+    {:ok, device} = Ash.Type.File.open(file, [:read, :binary])
+    data = IO.binread(device, :eof)
+    File.close(device)
+    write_tempfile(data)
+  end
+
+  defp write_tempfile(data) when is_binary(data) do
+    path = Path.join(System.tmp_dir!(), "ash_storage_analyze_#{AshStorage.generate_key()}")
+    File.write!(path, data)
+    {:ok, path}
+  end
+
+  defp write_tempfile(data) when is_list(data) do
+    write_tempfile(IO.iodata_to_binary(data))
+  end
+
+  defp maybe_cleanup_tempfile(%Ash.Type.File{} = file, path) do
+    case Ash.Type.File.path(file) do
+      {:ok, ^path} -> :ok
+      _ -> File.rm(path)
+    end
+  end
+
+  defp maybe_cleanup_tempfile(%File.Stream{}, _path), do: :ok
+  defp maybe_cleanup_tempfile(_data, path), do: File.rm(path)
 
   defp maybe_replace_existing(record, %{type: :one} = attachment_def, service_mod, ctx) do
     case find_attachments(record, attachment_def) do

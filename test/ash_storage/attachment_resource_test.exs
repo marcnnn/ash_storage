@@ -5,7 +5,7 @@ defmodule AshStorage.AttachmentResourceTest do
   alias AshStorage.Test.MultiAttachment
   alias AshStorage.Test.PolymorphicAttachment
 
-  describe "single belongs_to_resource" do
+  describe "belongs_to_resource" do
     test "has name attribute" do
       attr = Ash.Resource.Info.attribute(Attachment, :name)
       assert attr.type == Ash.Type.String
@@ -23,11 +23,10 @@ defmodule AshStorage.AttachmentResourceTest do
       assert rel.destination == AshStorage.Test.Blob
     end
 
-    test "belongs_to post with non-nullable FK" do
+    test "belongs_to post" do
       rel = Ash.Resource.Info.relationship(Attachment, :post)
       assert rel.type == :belongs_to
       assert rel.destination == AshStorage.Test.Post
-      assert rel.allow_nil? == false
     end
 
     test "create action accepts FK attributes" do

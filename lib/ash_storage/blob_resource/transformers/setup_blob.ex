@@ -31,6 +31,7 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
       {:service_name, :atom, allow_nil?: false, public?: true, writable?: true},
       {:service_opts, :map, allow_nil?: true, public?: true, writable?: true, default: %{}},
       {:metadata, :map, allow_nil?: true, public?: true, writable?: true, default: %{}},
+      {:analyzers, :map, allow_nil?: true, public?: true, writable?: true, default: %{}},
       {:pending_purge, :boolean,
        allow_nil?: false, public?: true, writable?: true, default: false}
     ]
@@ -66,7 +67,8 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
                :checksum,
                :service_name,
                :service_opts,
-               :metadata
+               :metadata,
+               :analyzers
              ]
            ),
          {:ok, pagination} <-
@@ -80,12 +82,14 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
            Ash.Resource.Builder.add_action(dsl_state, :destroy, :destroy, primary?: true),
          {:ok, dsl_state} <-
            Ash.Resource.Builder.add_action(dsl_state, :update, :update_metadata,
-             accept: [:metadata]
+             accept: [:metadata, :analyzers]
            ),
          {:ok, dsl_state} <-
            Ash.Resource.Builder.add_action(dsl_state, :update, :mark_for_purge,
              accept: [:pending_purge]
-           ) do
+           ),
+         {:ok, dsl_state} <- add_complete_analysis_action(dsl_state),
+         {:ok, dsl_state} <- add_run_pending_analyzers_action(dsl_state) do
       {:ok, purge_change} =
         Ash.Resource.Builder.build_action_change(AshStorage.BlobResource.Changes.PurgeFile)
 
@@ -94,4 +98,39 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
   end
 
   defp add_actions({:error, error}), do: {:error, error}
+
+  defp add_complete_analysis_action(dsl_state) do
+    {:ok, analyzer_key_arg} =
+      Ash.Resource.Builder.build_action_argument(:analyzer_key, :string, allow_nil?: false)
+
+    {:ok, status_arg} =
+      Ash.Resource.Builder.build_action_argument(:status, :string, allow_nil?: false)
+
+    {:ok, metadata_to_merge_arg} =
+      Ash.Resource.Builder.build_action_argument(:metadata_to_merge, :map, default: %{})
+
+    {:ok, complete_change} =
+      Ash.Resource.Builder.build_action_change(
+        AshStorage.BlobResource.Changes.CompleteAnalysis
+      )
+
+    Ash.Resource.Builder.add_action(dsl_state, :update, :complete_analysis,
+      accept: [],
+      arguments: [analyzer_key_arg, status_arg, metadata_to_merge_arg],
+      changes: [complete_change]
+    )
+  end
+
+  defp add_run_pending_analyzers_action(dsl_state) do
+    {:ok, change} =
+      Ash.Resource.Builder.build_action_change(
+        AshStorage.BlobResource.Changes.RunPendingAnalyzers
+      )
+
+    Ash.Resource.Builder.add_action(dsl_state, :update, :run_pending_analyzers,
+      accept: [],
+      require_atomic?: false,
+      changes: [change]
+    )
+  end
 end
