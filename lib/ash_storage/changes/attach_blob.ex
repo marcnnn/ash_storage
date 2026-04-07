@@ -1,5 +1,26 @@
-defmodule AshStorage.Changes.ConfirmDirectUpload do
-  @moduledoc false
+defmodule AshStorage.Changes.AttachBlob do
+  @moduledoc """
+  An action change that attaches a pre-uploaded blob (by ID) to the record.
+
+  Used for direct uploads where the file was uploaded directly to storage
+  (e.g. via a presigned S3 URL) and the blob record already exists.
+
+      create :create do
+        accept [:title]
+        argument :cover_image_blob_id, :uuid, allow_nil?: true
+
+        change {AshStorage.Changes.AttachBlob,
+                argument: :cover_image_blob_id, attachment: :cover_image}
+      end
+
+  For `has_one_attached`, replaces any existing attachment (purging the old file).
+  For `has_many_attached`, appends.
+
+  ## Options
+
+  - `:argument` - (required) the name of the blob ID argument on the action
+  - `:attachment` - (required) the name of the attachment to attach to
+  """
   use Ash.Resource.Change
 
   require Ash.Query
@@ -8,28 +29,44 @@ defmodule AshStorage.Changes.ConfirmDirectUpload do
   alias AshStorage.Service.Context
 
   @impl true
-  def init(opts), do: {:ok, opts}
+  def init(opts) do
+    with :ok <- validate_opt(opts, :argument),
+         :ok <- validate_opt(opts, :attachment) do
+      {:ok, opts}
+    end
+  end
 
+  defp validate_opt(opts, key) do
+    if opts[key], do: :ok, else: {:error, "#{key} is required"}
+  end
+
+  # sobelow_skip ["DOS.BinToAtom"]
   @impl true
   def change(changeset, opts, _context) do
-    attachment_name = opts[:attachment_name]
+    argument_name = opts[:argument]
+    attachment_name = opts[:attachment]
 
     Ash.Changeset.after_action(changeset, fn _changeset, record ->
-      resource = record.__struct__
-      blob_id = Ash.Changeset.get_argument(changeset, :blob_id)
+      blob_id = Ash.Changeset.get_argument(changeset, argument_name)
 
-      with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
-           {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def),
-           ctx = build_context(service_opts, resource, attachment_def, changeset),
-           {:ok, blob} <- fetch_blob(resource, blob_id),
-           {:ok, _} <- maybe_replace_existing(record, attachment_def, service_mod, ctx),
-           {:ok, attachment} <- create_attachment(record, attachment_def, blob) do
-        record =
-          record
-          |> Ash.Resource.put_metadata(:blob, blob)
-          |> Ash.Resource.put_metadata(:attachment, attachment)
-
+      if is_nil(blob_id) do
         {:ok, record}
+      else
+        resource = record.__struct__
+
+        with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
+             {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def),
+             ctx = build_context(service_opts, resource, attachment_def, changeset),
+             {:ok, blob} <- fetch_blob(resource, blob_id),
+             {:ok, _} <- maybe_replace_existing(record, attachment_def, service_mod, ctx),
+             {:ok, attachment} <- create_attachment(record, attachment_def, blob) do
+          record =
+            record
+            |> Ash.Resource.put_metadata(:"#{attachment_name}_blob", blob)
+            |> Ash.Resource.put_metadata(:"#{attachment_name}_attachment", attachment)
+
+          {:ok, record}
+        end
       end
     end)
   end

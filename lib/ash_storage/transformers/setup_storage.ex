@@ -173,9 +173,8 @@ defmodule AshStorage.Transformers.SetupStorage do
       name = attachment_def.name
 
       with {:ok, dsl_state} <- add_attach_action(dsl_state, name),
-           {:ok, dsl_state} <- add_detach_action(dsl_state, name),
-           {:ok, dsl_state} <- add_purge_action(dsl_state, name) do
-        add_confirm_direct_upload_action(dsl_state, name)
+           {:ok, dsl_state} <- add_detach_action(dsl_state, name) do
+        add_purge_action(dsl_state, name)
       end
     end)
   end
@@ -243,24 +242,6 @@ defmodule AshStorage.Transformers.SetupStorage do
       accept: [],
       require_atomic?: false,
       arguments: [blob_id_arg, all_arg],
-      changes: [change]
-    )
-  end
-
-  # sobelow_skip ["DOS.BinToAtom"]
-  defp add_confirm_direct_upload_action(dsl_state, name) do
-    {:ok, blob_id_arg} =
-      Ash.Resource.Builder.build_action_argument(:blob_id, :string, allow_nil?: false)
-
-    {:ok, change} =
-      Ash.Resource.Builder.build_action_change(
-        {AshStorage.Changes.ConfirmDirectUpload, attachment_name: name}
-      )
-
-    Ash.Resource.Builder.add_action(dsl_state, :update, :"confirm_direct_upload_#{name}",
-      accept: [],
-      require_atomic?: false,
-      arguments: [blob_id_arg],
       changes: [change]
     )
   end

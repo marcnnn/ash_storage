@@ -64,6 +64,7 @@ defmodule AshStorage.MixProject do
         "documentation/topics/analyzers.md",
         "documentation/topics/variants.md",
         "documentation/topics/file-arguments.md",
+        "documentation/topics/direct-uploads.md",
         "CHANGELOG.md"
       ],
       groups_for_extras: [
@@ -91,7 +92,8 @@ defmodule AshStorage.MixProject do
         ],
         Changes: [
           AshStorage.Changes.HandleFileArgument,
-          AshStorage.Changes.AttachFile
+          AshStorage.Changes.AttachFile,
+          AshStorage.Changes.AttachBlob
         ],
         Services: [
           AshStorage.Service,

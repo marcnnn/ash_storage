@@ -320,17 +320,16 @@ defmodule AshStorage.Service.S3IntegrationTest do
       assert {:ok, %{status: status}} = Req.put(upload_url, body: "direct content")
       assert status in [200, 204]
 
-      # Step 3: Confirm the upload and attach to record
+      # Step 3: Create record and attach the blob
       post =
         AshStorage.Test.ConfigurablePost
         |> Ash.Changeset.for_create(:create, %{title: "direct upload post"})
         |> Ash.create!()
 
-      {:ok, %{blob: confirmed_blob, attachment: attachment}} =
-        AshStorage.Operations.confirm_direct_upload(post, :avatar, blob.id)
-
-      assert confirmed_blob.id == blob.id
-      assert attachment.blob_id == blob.id
+      post =
+        post
+        |> Ash.Changeset.for_update(:attach_avatar_blob, %{avatar_blob_id: blob.id})
+        |> Ash.update!()
 
       # Verify file is actually in S3
       assert {:ok, "direct content"} = S3.download(blob.key, ctx())

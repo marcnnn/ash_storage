@@ -25,5 +25,12 @@ defmodule AshStorage.Test.ConfigurablePost do
 
   actions do
     defaults [:read, :destroy, create: [:title], update: [:title]]
+
+    update :attach_avatar_blob do
+      require_atomic? false
+      argument :avatar_blob_id, :uuid, allow_nil?: true
+
+      change {AshStorage.Changes.AttachBlob, argument: :avatar_blob_id, attachment: :avatar}
+    end
   end
 end

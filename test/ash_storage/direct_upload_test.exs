@@ -60,8 +60,44 @@ defmodule AshStorage.DirectUploadTest do
     end
   end
 
-  describe "confirm_direct_upload/4" do
-    test "attaches blob to record for has_one" do
+  describe "AttachBlob change on create" do
+    test "attaches blob to new record" do
+      {:ok, %{blob: blob}} =
+        Operations.prepare_direct_upload(AshStorage.Test.Post, :cover_image,
+          filename: "photo.jpg",
+          content_type: "image/jpeg",
+          byte_size: 100
+        )
+
+      # Simulate client uploading directly
+      AshStorage.Service.Test.upload(blob.key, "direct data", AshStorage.Service.Context.new([]))
+
+      post =
+        AshStorage.Test.Post
+        |> Ash.Changeset.for_create(:create_with_blob, %{
+          title: "direct upload post",
+          cover_image_blob_id: blob.id
+        })
+        |> Ash.create!()
+
+      post = Ash.load!(post, cover_image: :blob)
+      assert post.cover_image.blob.id == blob.id
+      assert post.cover_image.blob.filename == "photo.jpg"
+    end
+
+    test "skips when blob_id is nil" do
+      post =
+        AshStorage.Test.Post
+        |> Ash.Changeset.for_create(:create_with_blob, %{title: "no blob"})
+        |> Ash.create!()
+
+      post = Ash.load!(post, :cover_image)
+      assert post.cover_image == nil
+    end
+  end
+
+  describe "AttachBlob change on update" do
+    test "attaches blob to existing record" do
       post = create_post!()
 
       {:ok, %{blob: blob}} =
@@ -71,20 +107,13 @@ defmodule AshStorage.DirectUploadTest do
           byte_size: 100
         )
 
-      # Simulate client uploading directly
-      AshStorage.Service.Test.upload(
-        blob.key,
-        "direct upload data",
-        AshStorage.Service.Context.new([])
-      )
+      AshStorage.Service.Test.upload(blob.key, "direct data", AshStorage.Service.Context.new([]))
 
-      {:ok, %{blob: confirmed_blob, attachment: attachment}} =
-        Operations.confirm_direct_upload(post, :cover_image, blob.id)
+      post =
+        post
+        |> Ash.Changeset.for_update(:attach_blob, %{cover_image_blob_id: blob.id})
+        |> Ash.update!()
 
-      assert confirmed_blob.id == blob.id
-      assert attachment.blob_id == blob.id
-
-      # Verify via Ash.load!
       post = Ash.load!(post, cover_image: :blob)
       assert post.cover_image.blob.filename == "photo.jpg"
     end
@@ -99,7 +128,7 @@ defmodule AshStorage.DirectUploadTest do
           content_type: "image/jpeg"
         )
 
-      # Second: prepare and confirm direct upload
+      # Second: prepare and attach via blob
       {:ok, %{blob: new_blob}} =
         Operations.prepare_direct_upload(AshStorage.Test.Post, :cover_image,
           filename: "new.jpg",
@@ -113,7 +142,10 @@ defmodule AshStorage.DirectUploadTest do
         AshStorage.Service.Context.new([])
       )
 
-      {:ok, _} = Operations.confirm_direct_upload(post, :cover_image, new_blob.id)
+      post =
+        post
+        |> Ash.Changeset.for_update(:attach_blob, %{cover_image_blob_id: new_blob.id})
+        |> Ash.update!()
 
       # Old file should be purged
       refute AshStorage.Service.Test.exists?(old_blob.key)
@@ -138,13 +170,19 @@ defmodule AshStorage.DirectUploadTest do
           byte_size: 200
         )
 
-      # Simulate uploads
       ctx = AshStorage.Service.Context.new([])
       AshStorage.Service.Test.upload(blob1.key, "pdf1", ctx)
       AshStorage.Service.Test.upload(blob2.key, "pdf2", ctx)
 
-      {:ok, _} = Operations.confirm_direct_upload(post, :documents, blob1.id)
-      {:ok, _} = Operations.confirm_direct_upload(post, :documents, blob2.id)
+      post =
+        post
+        |> Ash.Changeset.for_update(:attach_document_blob, %{document_blob_id: blob1.id})
+        |> Ash.update!()
+
+      post =
+        post
+        |> Ash.Changeset.for_update(:attach_document_blob, %{document_blob_id: blob2.id})
+        |> Ash.update!()
 
       post = Ash.load!(post, documents: :blob)
       filenames = Enum.map(post.documents, & &1.blob.filename) |> Enum.sort()
@@ -154,12 +192,11 @@ defmodule AshStorage.DirectUploadTest do
     test "returns error for nonexistent blob" do
       post = create_post!()
 
-      assert {:error, %Ash.Error.Unknown{}} =
-               Operations.confirm_direct_upload(
-                 post,
-                 :cover_image,
-                 Ash.UUID.generate()
-               )
+      assert_raise Ash.Error.Unknown, fn ->
+        post
+        |> Ash.Changeset.for_update(:attach_blob, %{cover_image_blob_id: Ash.UUID.generate()})
+        |> Ash.update!()
+      end
     end
   end
 end

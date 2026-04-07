@@ -11,7 +11,6 @@ defmodule AshStorage.Operations do
   - `:attach_<name>` — upload file, create blob + attachment, run analyzers
   - `:detach_<name>` — remove attachment record(s) without deleting files
   - `:purge_<name>` — remove attachment + blob records and delete files
-  - `:confirm_direct_upload_<name>` — link a pre-uploaded blob to a record
   """
 
   require Ash.Query
@@ -100,34 +99,6 @@ defmodule AshStorage.Operations do
            {:ok, upload_info} <- service_mod.direct_upload(key, ctx) do
         {:ok, Map.put(upload_info, :blob, blob)}
       end
-    end
-  end
-
-  @doc """
-  Confirm a direct upload and attach the blob to a record.
-
-  Calls the `:confirm_direct_upload_<name>` action on the parent resource.
-  """
-  def confirm_direct_upload(record, attachment_name, blob_id, opts \\ []) do
-    args = %{blob_id: blob_id}
-
-    action_opts =
-      Keyword.put(
-        opts,
-        :action,
-        String.to_existing_atom("confirm_direct_upload_#{attachment_name}")
-      )
-
-    case Ash.update(record, args, action_opts) do
-      {:ok, record} ->
-        {:ok,
-         %{
-           blob: record.__metadata__[:blob],
-           attachment: record.__metadata__[:attachment]
-         }}
-
-      {:error, error} ->
-        {:error, error}
     end
   end
 
