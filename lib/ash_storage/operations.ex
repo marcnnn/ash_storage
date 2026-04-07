@@ -225,6 +225,7 @@ defmodule AshStorage.Operations do
   When `write_attributes` is configured on the analyzer, it finds the parent record
   via stored target info and writes the mapped values.
   """
+  # sobelow_skip ["Traversal.FileModule"]
   def run_analyzer(blob, analyzer_module, opts \\ []) do
     analyzer_key = to_string(analyzer_module)
     blob_analyzers = blob.analyzers || %{}

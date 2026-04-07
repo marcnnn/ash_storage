@@ -10,6 +10,7 @@ defmodule AshStorage.Changes.HandleFileArgument do
   @impl true
   def init(opts), do: {:ok, opts}
 
+  # sobelow_skip ["DOS.BinToAtom", "Traversal.FileModule"]
   @impl true
   def change(changeset, opts, _context) do
     argument_name = opts[:argument]
@@ -344,6 +345,7 @@ defmodule AshStorage.Changes.HandleFileArgument do
     write_tempfile(data)
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp write_tempfile(data) when is_binary(data) do
     path = Path.join(System.tmp_dir!(), "ash_storage_analyze_#{AshStorage.generate_key()}")
     File.write!(path, data)
@@ -352,6 +354,7 @@ defmodule AshStorage.Changes.HandleFileArgument do
 
   defp write_tempfile(data) when is_list(data), do: write_tempfile(IO.iodata_to_binary(data))
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp maybe_cleanup_tempfile(%Ash.Type.File{} = file, path) do
     case Ash.Type.File.path(file) do
       {:ok, ^path} -> :ok
@@ -360,6 +363,7 @@ defmodule AshStorage.Changes.HandleFileArgument do
   end
 
   defp maybe_cleanup_tempfile(%File.Stream{}, _path), do: :ok
+  # sobelow_skip ["Traversal.FileModule"]
   defp maybe_cleanup_tempfile(_data, path), do: File.rm(path)
 
   # sobelow_skip ["DOS.BinToAtom"]

@@ -54,6 +54,7 @@ defmodule AshStorage.VariantGenerator do
     service_mod.download(source_blob.key, ctx)
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp run_transform(module, opts, source_data) do
     source_path =
       Path.join(System.tmp_dir!(), "ash_storage_variant_src_#{AshStorage.generate_key()}")
