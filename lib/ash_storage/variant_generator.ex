@@ -23,37 +23,6 @@ defmodule AshStorage.VariantGenerator do
     end
   end
 
-  @doc """
-  Find an existing variant blob or generate it on demand.
-  """
-  def find_or_generate(source_blob, variant_def, resource, attachment_def) do
-    digest = VariantDefinition.digest(variant_def)
-    blob_resource = Info.storage_blob_resource!(resource)
-
-    case find_existing(blob_resource, source_blob.id, variant_def.name, digest) do
-      {:ok, existing} -> {:ok, existing}
-      :not_found -> generate(source_blob, variant_def, resource, attachment_def)
-    end
-  end
-
-  defp find_existing(blob_resource, source_blob_id, variant_name, digest) do
-    require Ash.Query
-
-    blob_resource
-    |> Ash.Query.filter(
-      variant_of_blob_id == ^source_blob_id and
-        variant_name == ^to_string(variant_name) and
-        variant_digest == ^digest
-    )
-    |> Ash.Query.limit(1)
-    |> Ash.read()
-    |> case do
-      {:ok, [blob]} -> {:ok, blob}
-      {:ok, []} -> :not_found
-      {:error, error} -> {:error, error}
-    end
-  end
-
   defp do_generate(source_blob, module, opts, digest, variant_name, resource, attachment_def) do
     with {:ok, {service_mod, service_opts}} <- resolve_service(resource, attachment_def),
          {:ok, source_data} <- download_source(source_blob, service_mod, service_opts, resource, attachment_def),

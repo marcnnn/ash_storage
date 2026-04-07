@@ -1,8 +1,5 @@
 defmodule Demo.Variants.Uppercase do
-  @moduledoc """
-  Demo variant that uppercases text file content.
-  Demonstrates a simple eager transformation.
-  """
+  @moduledoc false
   @behaviour AshStorage.Variant
 
   @impl true
@@ -18,10 +15,7 @@ defmodule Demo.Variants.Uppercase do
 end
 
 defmodule Demo.Variants.Reversed do
-  @moduledoc """
-  Demo variant that reverses text file content.
-  Demonstrates an oban (background) transformation.
-  """
+  @moduledoc false
   @behaviour AshStorage.Variant
 
   @impl true
@@ -37,10 +31,7 @@ defmodule Demo.Variants.Reversed do
 end
 
 defmodule Demo.Variants.Excerpt do
-  @moduledoc """
-  Demo variant that extracts the first N characters of a text file.
-  Demonstrates a variant with configurable opts.
-  """
+  @moduledoc false
   @behaviour AshStorage.Variant
 
   @impl true
