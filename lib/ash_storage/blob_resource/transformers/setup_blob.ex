@@ -35,6 +35,10 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
       {:analyzers, :map, allow_nil?: true, public?: true, writable?: true, default: %{}},
       {:pending_purge, :boolean,
        allow_nil?: false, public?: true, writable?: true, default: false},
+      {:pending_analyzers, :boolean,
+       allow_nil?: false, public?: true, writable?: true, default: false},
+      {:pending_variants, :boolean,
+       allow_nil?: false, public?: true, writable?: true, default: false},
       {:variant_of_blob_id, :uuid, allow_nil?: true, public?: true, writable?: true},
       {:variant_name, :string, allow_nil?: true, public?: true, writable?: true},
       {:variant_digest, :string, allow_nil?: true, public?: true, writable?: true}
@@ -114,7 +118,7 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
            Ash.Resource.Builder.add_action(dsl_state, :destroy, :destroy, primary?: true),
          {:ok, dsl_state} <-
            Ash.Resource.Builder.add_action(dsl_state, :update, :update_metadata,
-             accept: [:metadata, :analyzers]
+             accept: [:metadata, :analyzers, :pending_analyzers, :pending_variants]
            ),
          {:ok, dsl_state} <-
            Ash.Resource.Builder.add_action(dsl_state, :update, :mark_for_purge,

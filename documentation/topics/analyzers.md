@@ -111,14 +111,7 @@ defmodule MyApp.StorageBlob do
       trigger :run_pending_analyzers do
         action :run_pending_analyzers
         read_action :read
-
-        where expr(
-          fragment(
-            "EXISTS (SELECT 1 FROM jsonb_each(?) AS a WHERE a.value->>'status' = 'pending')",
-            analyzers
-          )
-        )
-
+        where expr(pending_analyzers == true)
         scheduler_cron("* * * * *")
         max_attempts(3)
       end

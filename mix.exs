@@ -188,6 +188,8 @@ defmodule AshStorage.MixProject do
       "dev.generate_migrations":
         "ash_postgres.generate_migrations --domains Demo.Domain --snapshot-path dev/resource_snapshots --migration-path dev/repo/migrations",
       "dev.reset": ["ash_postgres.drop", "ash_postgres.create", "dev.migrate"],
+      "test.generate_migrations":
+        "ash_postgres.generate_migrations --domains AshStorage.Test.PgDomain --snapshot-path priv/resource_snapshots/test_repo --migration-path priv/test_repo/migrations",
       docs: [
         "docs",
         "spark.replace_doc_links"

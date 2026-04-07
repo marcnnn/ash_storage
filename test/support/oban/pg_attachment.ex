@@ -8,6 +8,10 @@ defmodule AshStorage.Test.PgAttachment do
   postgres do
     table "storage_attachments"
     repo(AshStorage.TestRepo)
+
+    references do
+      reference :post, on_delete: :nilify
+    end
   end
 
   attachment do

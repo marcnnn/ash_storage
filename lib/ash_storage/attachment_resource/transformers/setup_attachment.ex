@@ -62,7 +62,7 @@ defmodule AshStorage.AttachmentResource.Transformers.SetupAttachment do
           :belongs_to,
           name,
           resource,
-          allow_nil?: length(belongs_to_resources) > 1,
+          allow_nil?: true,
           public?: true,
           attribute_writable?: true
         )

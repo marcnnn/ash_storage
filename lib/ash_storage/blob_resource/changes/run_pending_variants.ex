@@ -18,7 +18,7 @@ defmodule AshStorage.BlobResource.Changes.RunPendingVariants do
           info["status"] == "pending"
         end)
 
-      Enum.reduce_while(pending, {:ok, blob}, fn {variant_name, info}, {:ok, blob} ->
+      result = Enum.reduce_while(pending, {:ok, blob}, fn {variant_name, info}, {:ok, blob} ->
         # sobelow_skip ["DOS.BinToAtom"]
         module = String.to_existing_atom(info["module"])
         opts = deserialize_opts(info["opts"] || %{})
@@ -65,6 +65,10 @@ defmodule AshStorage.BlobResource.Changes.RunPendingVariants do
             {:halt, {:error, error}}
         end
       end)
+
+      with {:ok, blob} <- result do
+        Ash.update(blob, %{pending_variants: false}, action: :update_metadata)
+      end
     end)
   end
 

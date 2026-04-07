@@ -136,8 +136,16 @@ defmodule AshStorage.Changes.Attach do
           {to_string(module), entry}
         end)
 
+      has_oban? = Enum.any?(normalized, fn {_, analyze, _, _} -> analyze == :oban end)
+
+      update_params =
+        %{analyzers: initial_analyzers}
+        |> then(fn params ->
+          if has_oban?, do: Map.put(params, :pending_analyzers, true), else: params
+        end)
+
       with {:ok, blob} <-
-             Ash.update(blob, %{analyzers: initial_analyzers}, action: :update_metadata) do
+             Ash.update(blob, update_params, action: :update_metadata) do
         eager =
           Enum.filter(normalized, fn {module, analyze, _opts, _wa} ->
             analyze != :oban && module.accept?(content_type)
@@ -452,7 +460,10 @@ defmodule AshStorage.Changes.Attach do
         end)
 
       metadata = Map.put(blob.metadata || %{}, "__pending_variants__", pending_variants)
-      Ash.update(blob, %{metadata: metadata}, action: :update_metadata)
+
+      Ash.update(blob, %{metadata: metadata, pending_variants: true},
+        action: :update_metadata
+      )
     end
   end
 end

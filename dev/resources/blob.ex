@@ -29,11 +29,7 @@ defmodule Demo.Blob do
       trigger :run_pending_variants do
         action :run_pending_variants
         read_action :read
-
-        where expr(
-                not is_nil(fragment("metadata->>'__pending_variants__'"))
-              )
-
+        where expr(pending_variants == true)
         scheduler_cron("* * * * *")
         max_attempts(3)
         scheduler_module_name(Demo.Blob.RunPendingVariantsScheduler)
@@ -43,11 +39,7 @@ defmodule Demo.Blob do
       trigger :run_pending_analyzers do
         action :run_pending_analyzers
         read_action :read
-
-        where expr(
-                fragment("EXISTS (SELECT 1 FROM jsonb_each(?) AS a WHERE a.value->>'status' = 'pending')", analyzers)
-              )
-
+        where expr(pending_analyzers == true)
         scheduler_cron("* * * * *")
         max_attempts(3)
         scheduler_module_name(Demo.Blob.RunPendingAnalyzersScheduler)

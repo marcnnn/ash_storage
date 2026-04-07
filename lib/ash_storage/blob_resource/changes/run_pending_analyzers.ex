@@ -18,15 +18,20 @@ defmodule AshStorage.BlobResource.Changes.RunPendingAnalyzers do
           info["status"] == "pending"
         end)
 
-      Enum.reduce_while(pending, {:ok, blob}, fn {analyzer_mod, _info}, {:ok, blob} ->
-        # sobelow_skip ["DOS.BinToAtom"]
-        module = String.to_existing_atom(analyzer_mod)
+      result =
+        Enum.reduce_while(pending, {:ok, blob}, fn {analyzer_mod, _info}, {:ok, blob} ->
+          # sobelow_skip ["DOS.BinToAtom"]
+          module = String.to_existing_atom(analyzer_mod)
 
-        case AshStorage.Operations.run_analyzer(blob, module) do
-          {:ok, blob} -> {:cont, {:ok, blob}}
-          {:error, error} -> {:halt, {:error, error}}
-        end
-      end)
+          case AshStorage.Operations.run_analyzer(blob, module) do
+            {:ok, blob} -> {:cont, {:ok, blob}}
+            {:error, error} -> {:halt, {:error, error}}
+          end
+        end)
+
+      with {:ok, blob} <- result do
+        Ash.update(blob, %{pending_analyzers: false}, action: :update_metadata)
+      end
     end)
   end
 end
