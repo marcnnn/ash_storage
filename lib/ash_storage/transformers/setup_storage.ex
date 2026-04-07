@@ -201,9 +201,7 @@ defmodule AshStorage.Transformers.SetupStorage do
       Ash.Resource.Builder.build_action_argument(:metadata, :map, default: %{})
 
     {:ok, change} =
-      Ash.Resource.Builder.build_action_change(
-        {AshStorage.Changes.Attach, attachment_name: name}
-      )
+      Ash.Resource.Builder.build_action_change({AshStorage.Changes.Attach, attachment_name: name})
 
     Ash.Resource.Builder.add_action(dsl_state, :update, :"attach_#{name}",
       accept: [],
@@ -222,9 +220,7 @@ defmodule AshStorage.Transformers.SetupStorage do
       Ash.Resource.Builder.build_action_argument(:all, :boolean, default: false)
 
     {:ok, change} =
-      Ash.Resource.Builder.build_action_change(
-        {AshStorage.Changes.Detach, attachment_name: name}
-      )
+      Ash.Resource.Builder.build_action_change({AshStorage.Changes.Detach, attachment_name: name})
 
     Ash.Resource.Builder.add_action(dsl_state, :update, :"detach_#{name}",
       accept: [],
@@ -243,9 +239,7 @@ defmodule AshStorage.Transformers.SetupStorage do
       Ash.Resource.Builder.build_action_argument(:all, :boolean, default: false)
 
     {:ok, change} =
-      Ash.Resource.Builder.build_action_change(
-        {AshStorage.Changes.Purge, attachment_name: name}
-      )
+      Ash.Resource.Builder.build_action_change({AshStorage.Changes.Purge, attachment_name: name})
 
     Ash.Resource.Builder.add_action(dsl_state, :update, :"purge_#{name}",
       accept: [],
@@ -272,5 +266,4 @@ defmodule AshStorage.Transformers.SetupStorage do
       changes: [change]
     )
   end
-
 end

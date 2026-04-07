@@ -66,21 +66,21 @@ defmodule AshStorage.Test.AnalyzablePost do
     attachment_resource(AshStorage.Test.Attachment)
 
     has_one_attached :document do
-      analyzer AshStorage.Test.TestAnalyzer
+      analyzer(AshStorage.Test.TestAnalyzer)
     end
 
     has_one_attached :photo do
-      analyzer {AshStorage.Test.TestAnalyzer, include_word_count: true}
-      analyzer AshStorage.Test.ImageAnalyzer
+      analyzer({AshStorage.Test.TestAnalyzer, include_word_count: true})
+      analyzer(AshStorage.Test.ImageAnalyzer)
     end
 
     has_one_attached :risky_file do
-      analyzer AshStorage.Test.FailingAnalyzer
-      analyzer AshStorage.Test.TestAnalyzer
+      analyzer(AshStorage.Test.FailingAnalyzer)
+      analyzer(AshStorage.Test.TestAnalyzer)
     end
 
     has_one_attached :analyzed_doc do
-      analyzer AshStorage.Test.TestAnalyzer, write_attributes: [line_count: :cached_line_count]
+      analyzer(AshStorage.Test.TestAnalyzer, write_attributes: [line_count: :cached_line_count])
     end
   end
 

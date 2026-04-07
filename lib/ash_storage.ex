@@ -43,8 +43,8 @@ defmodule AshStorage do
   - `AshStorage.Service` — Behaviour for storage backends
   """
 
-  alias AshStorage.AttachmentDefinition
   alias AshStorage.AnalyzerDefinition
+  alias AshStorage.AttachmentDefinition
   alias AshStorage.VariantDefinition
 
   @analyzer %Spark.Dsl.Entity{
@@ -138,7 +138,10 @@ defmodule AshStorage do
   use Spark.Dsl.Extension,
     sections: [@storage],
     transformers: [AshStorage.Transformers.SetupStorage],
-    verifiers: [AshStorage.Verifiers.ValidateObanAnalyzers, AshStorage.Verifiers.ValidateObanVariants]
+    verifiers: [
+      AshStorage.Verifiers.ValidateObanAnalyzers,
+      AshStorage.Verifiers.ValidateObanVariants
+    ]
 
   @doc """
   Generate a unique key for storing a file.

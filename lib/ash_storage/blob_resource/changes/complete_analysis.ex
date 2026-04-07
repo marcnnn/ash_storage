@@ -53,10 +53,11 @@ defmodule AshStorage.BlobResource.Changes.CompleteAnalysis do
     updated_analyzers = put_in(current_analyzers, [analyzer_key, "status"], status)
     updated_metadata = Map.merge(current_metadata, metadata_to_merge)
 
-    {:atomic, %{
-      analyzers: {:atomic, updated_analyzers},
-      metadata: {:atomic, updated_metadata}
-    }}
+    {:atomic,
+     %{
+       analyzers: {:atomic, updated_analyzers},
+       metadata: {:atomic, updated_metadata}
+     }}
   end
 
   defp do_atomic(changeset) do

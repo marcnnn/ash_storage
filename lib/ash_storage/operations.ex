@@ -112,7 +112,11 @@ defmodule AshStorage.Operations do
     args = %{blob_id: blob_id}
 
     action_opts =
-      Keyword.put(opts, :action, String.to_existing_atom("confirm_direct_upload_#{attachment_name}"))
+      Keyword.put(
+        opts,
+        :action,
+        String.to_existing_atom("confirm_direct_upload_#{attachment_name}")
+      )
 
     case Ash.update(record, args, action_opts) do
       {:ok, record} ->
@@ -252,7 +256,8 @@ defmodule AshStorage.Operations do
                 end
 
               with {:ok, blob} <-
-                     Ash.update(blob,
+                     Ash.update(
+                       blob,
                        %{
                          analyzer_key: analyzer_key,
                          status: status,
@@ -271,7 +276,8 @@ defmodule AshStorage.Operations do
             end
           end
         else
-          Ash.update(blob,
+          Ash.update(
+            blob,
             %{analyzer_key: analyzer_key, status: "skipped", metadata_to_merge: %{}},
             action: :complete_analysis
           )

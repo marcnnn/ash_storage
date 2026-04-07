@@ -181,7 +181,8 @@ defmodule AshStorage.AnalyzerObanTest do
 
       # Add analyzers map
       {:ok, blob} =
-        Ash.update(blob,
+        Ash.update(
+          blob,
           %{
             analyzers: %{
               to_string(AshStorage.Test.TestAnalyzer) => %{
@@ -287,7 +288,8 @@ defmodule AshStorage.AnalyzerObanTest do
 
       # Set initial analyzers map
       {:ok, blob} =
-        Ash.update(blob,
+        Ash.update(
+          blob,
           %{
             analyzers: %{
               "analyzer_a" => %{"status" => "pending", "opts" => %{}},
@@ -299,7 +301,8 @@ defmodule AshStorage.AnalyzerObanTest do
 
       # Complete analyzer_a
       {:ok, blob} =
-        Ash.update(blob,
+        Ash.update(
+          blob,
           %{analyzer_key: "analyzer_a", status: "complete", metadata_to_merge: %{"a" => 1}},
           action: :complete_analysis
         )
@@ -311,7 +314,8 @@ defmodule AshStorage.AnalyzerObanTest do
 
       # Complete analyzer_b
       {:ok, blob} =
-        Ash.update(blob,
+        Ash.update(
+          blob,
           %{analyzer_key: "analyzer_b", status: "complete", metadata_to_merge: %{"b" => 2}},
           action: :complete_analysis
         )

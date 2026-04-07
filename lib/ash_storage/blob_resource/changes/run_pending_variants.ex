@@ -33,7 +33,12 @@ defmodule AshStorage.BlobResource.Changes.RunPendingVariants do
           generate: :oban
         }
 
-        case AshStorage.VariantGenerator.generate(blob, variant_def, resource_module, attachment_def) do
+        case AshStorage.VariantGenerator.generate(
+               blob,
+               variant_def,
+               resource_module,
+               attachment_def
+             ) do
           {:ok, _variant_blob} ->
             updated_variants =
               put_in(pending_variants, [variant_name, "status"], "complete")

@@ -144,9 +144,7 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
       Ash.Resource.Builder.build_action_argument(:metadata_to_merge, :map, default: %{})
 
     {:ok, complete_change} =
-      Ash.Resource.Builder.build_action_change(
-        AshStorage.BlobResource.Changes.CompleteAnalysis
-      )
+      Ash.Resource.Builder.build_action_change(AshStorage.BlobResource.Changes.CompleteAnalysis)
 
     Ash.Resource.Builder.add_action(dsl_state, :update, :complete_analysis,
       accept: [],
@@ -175,9 +173,7 @@ defmodule AshStorage.BlobResource.Transformers.SetupBlob do
 
   defp add_run_pending_variants_action(dsl_state) do
     {:ok, change} =
-      Ash.Resource.Builder.build_action_change(
-        AshStorage.BlobResource.Changes.RunPendingVariants
-      )
+      Ash.Resource.Builder.build_action_change(AshStorage.BlobResource.Changes.RunPendingVariants)
 
     Ash.Resource.Builder.add_action(dsl_state, :update, :run_pending_variants,
       accept: [],

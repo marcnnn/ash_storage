@@ -162,29 +162,33 @@ defmodule AshStorage.VariantTest do
 
   describe "variant digest" do
     test "different opts produce different digests" do
-      d1 = AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
-        name: :test,
-        module: {AshStorage.Test.UppercaseVariant, width: 100}
-      })
+      d1 =
+        AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
+          name: :test,
+          module: {AshStorage.Test.UppercaseVariant, width: 100}
+        })
 
-      d2 = AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
-        name: :test,
-        module: {AshStorage.Test.UppercaseVariant, width: 200}
-      })
+      d2 =
+        AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
+          name: :test,
+          module: {AshStorage.Test.UppercaseVariant, width: 200}
+        })
 
       assert d1 != d2
     end
 
     test "same opts produce same digests" do
-      d1 = AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
-        name: :test,
-        module: AshStorage.Test.UppercaseVariant
-      })
+      d1 =
+        AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
+          name: :test,
+          module: AshStorage.Test.UppercaseVariant
+        })
 
-      d2 = AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
-        name: :test,
-        module: AshStorage.Test.UppercaseVariant
-      })
+      d2 =
+        AshStorage.VariantDefinition.digest(%AshStorage.VariantDefinition{
+          name: :test,
+          module: AshStorage.Test.UppercaseVariant
+        })
 
       assert d1 == d2
     end

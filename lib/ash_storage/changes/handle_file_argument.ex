@@ -215,8 +215,8 @@ defmodule AshStorage.Changes.HandleFileArgument do
 
     try do
       Enum.reduce_while(eager_analyzers, {:ok, blob, %{}}, fn {module, _analyze, opts,
-                                                                write_attributes},
-                                                               {:ok, blob, acc_writes} ->
+                                                               write_attributes},
+                                                              {:ok, blob, acc_writes} ->
         analyzer_key = to_string(module)
 
         {status, metadata_to_merge} =
@@ -237,7 +237,8 @@ defmodule AshStorage.Changes.HandleFileArgument do
             %{}
           end
 
-        case Ash.update(blob,
+        case Ash.update(
+               blob,
                %{
                  analyzer_key: analyzer_key,
                  status: status,
@@ -385,7 +386,12 @@ defmodule AshStorage.Changes.HandleFileArgument do
     params =
       if parent_rel do
         fk_attr = :"#{parent_rel.name}_id"
-        Map.new([{:name, to_string(attachment_def.name)}, {fk_attr, record_id}, {:blob_id, blob.id}])
+
+        Map.new([
+          {:name, to_string(attachment_def.name)},
+          {fk_attr, record_id},
+          {:blob_id, blob.id}
+        ])
       else
         %{
           name: to_string(attachment_def.name),
@@ -413,7 +419,11 @@ defmodule AshStorage.Changes.HandleFileArgument do
       if parent_rel do
         [{:name, to_string(attachment_def.name)}, {:"#{parent_rel.name}_id", record_id}]
       else
-        [name: to_string(attachment_def.name), record_type: to_string(resource), record_id: record_id]
+        [
+          name: to_string(attachment_def.name),
+          record_type: to_string(resource),
+          record_id: record_id
+        ]
       end
 
     attachment_resource

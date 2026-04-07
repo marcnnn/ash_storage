@@ -58,13 +58,13 @@ defmodule AshStorage.Test.VariantPost do
     attachment_resource(AshStorage.Test.Attachment)
 
     has_one_attached :document do
-      variant :uppercase, AshStorage.Test.UppercaseVariant
-      variant :eager_uppercase, AshStorage.Test.UppercaseVariant, generate: :eager
-      variant :custom, {AshStorage.Test.UppercaseVariant, suffix: "!!!"}, generate: :eager
+      variant(:uppercase, AshStorage.Test.UppercaseVariant)
+      variant(:eager_uppercase, AshStorage.Test.UppercaseVariant, generate: :eager)
+      variant(:custom, {AshStorage.Test.UppercaseVariant, suffix: "!!!"}, generate: :eager)
     end
 
     has_one_attached :image do
-      variant :rejected, AshStorage.Test.RejectAllVariant, generate: :eager
+      variant(:rejected, AshStorage.Test.RejectAllVariant, generate: :eager)
     end
   end
 

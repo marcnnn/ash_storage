@@ -66,7 +66,10 @@ defmodule AshStorage.Changes.Attach do
   defp do_attach(record, resource, attachment_name, changeset) do
     io = Ash.Changeset.get_argument(changeset, :io)
     filename = Ash.Changeset.get_argument(changeset, :filename)
-    content_type = Ash.Changeset.get_argument(changeset, :content_type) || "application/octet-stream"
+
+    content_type =
+      Ash.Changeset.get_argument(changeset, :content_type) || "application/octet-stream"
+
     metadata = Ash.Changeset.get_argument(changeset, :metadata) || %{}
 
     with {:ok, attachment_def} <- Info.attachment(resource, attachment_name),
@@ -152,8 +155,8 @@ defmodule AshStorage.Changes.Attach do
 
     try do
       Enum.reduce_while(eager_analyzers, {:ok, blob, %{}}, fn {module, _analyze, opts,
-                                                                write_attributes},
-                                                               {:ok, blob, acc_writes} ->
+                                                               write_attributes},
+                                                              {:ok, blob, acc_writes} ->
         analyzer_key = to_string(module)
 
         {status, metadata_to_merge} =
@@ -174,7 +177,8 @@ defmodule AshStorage.Changes.Attach do
             %{}
           end
 
-        case Ash.update(blob,
+        case Ash.update(
+               blob,
                %{
                  analyzer_key: analyzer_key,
                  status: status,
